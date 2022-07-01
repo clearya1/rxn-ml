@@ -23,11 +23,12 @@ def get_coordinates(n, energies, cols, all_cols):
     # make temporary df with coordinates for each atom
     coord_df = pd.DataFrame(data = coords.values, columns = cols)
     # if there are <17 atoms in compound then pack left over columns with nan
-    buffer = np.empty((1,4*(30 - len(coord_df.index)))).reshape(1,-1)
+    buffer = np.empty((1,4*(21 - len(coord_df.index)))).reshape(1,-1)
     buffer[:] = np.nan
     data = np.concatenate((coord_df.values.reshape((1,-1)), buffer), axis = 1)
     # make df containing all coordinates 
     df = pd.DataFrame(data, columns = all_cols)
+    df.drop(columns='filename',inplace=True)
     return df, all_cols
 
 cols = ['element','x coordinates', 'y coordinates', 'z coordinates'] 
