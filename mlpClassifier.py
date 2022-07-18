@@ -1,4 +1,5 @@
 # pytorch mlp for binary classification
+import numpy as np
 from numpy import vstack
 from pandas import read_csv
 from sklearn.preprocessing import LabelEncoder
@@ -49,6 +50,44 @@ class CSVDataset(Dataset):
     train_size = len(self.X) - test_size
     # calculate the split
     return random_split(self, [train_size, test_size])
+    
+# custom dataset definition
+class NumpyDataset(Dataset):
+  # load the dataset
+  def __init__(self, path, y_label):
+    # load the csv file as a dataframe
+    nparray = np.load(path, allow_pickle=True)
+    rows = len(nparray)
+    cols = len(nparray[0][0])
+    # store the inputs and outputs
+    self.X = np.zeros((rows, cols))
+    self.y = np.zeros(rows)
+    for i in range(rows):
+      self.X[i] = nparray[i][0]
+      self.y[i] = nparray[i][1]
+    # ensure input data is floats
+    self.X = self.X.astype('float32')
+    # label encode target and ensure the values are floats
+    self.y = LabelEncoder().fit_transform(self.y)
+    self.y = self.y.astype('float32')
+    self.y = self.y.reshape((len(self.y), 1))
+    print(int(sum(self.y)[0]), ' transition states out of ', rows)
+
+  # number of rows in the dataset
+  def __len__(self):
+    return len(self.X)
+
+  # get a row at an index
+  def __getitem__(self, idx):
+    return [self.X[idx], self.y[idx]]
+
+  # get indexes for train and test rows
+  def get_splits(self, n_test=0.2):
+    # determine sizes
+    test_size = round(n_test * len(self.X))
+    train_size = len(self.X) - test_size
+    # calculate the split
+    return random_split(self, [train_size, test_size])
 
 # Define model
 class MLP(Module):
@@ -56,15 +95,15 @@ class MLP(Module):
   def __init__(self, n_inputs):
     super(MLP, self).__init__()
     # input to first hidden layer
-    self.hidden1 = Linear(n_inputs, 10)
+    self.hidden1 = Linear(n_inputs, 64)
     kaiming_uniform_(self.hidden1.weight, nonlinearity='relu')
     self.act1 = ReLU()
     # second hidden layer
-    self.hidden2 = Linear(10, 8)
+    self.hidden2 = Linear(64, 64)
     kaiming_uniform_(self.hidden2.weight, nonlinearity='relu')
     self.act2 = ReLU()
     # third hidden layer and output
-    self.hidden3 = Linear(8, 1)
+    self.hidden3 = Linear(64, 1)
     xavier_uniform_(self.hidden3.weight)
     self.act3 = Sigmoid()
 
@@ -84,7 +123,7 @@ class MLP(Module):
 # prepare the dataset
 def prepare_data(path, y_label):
   # load the csv file as a dataframe
-  dataset = CSVDataset(path, y_label)
+  dataset = NumpyDataset(path, y_label)
   # calculate split
   train, test = dataset.get_splits()
   # prepare data loaders
@@ -100,6 +139,7 @@ def train_model(train_dl, model):
   # enumerate epochs
   for epoch in range(100):
     # enumerate mini batches
+    print('Epoch ', epoch, '/100')
     for i, (inputs, targets) in enumerate(train_dl):
       # clear the gradients
       optimizer.zero_grad()
@@ -143,19 +183,21 @@ def predict(row, model):
   return yhat
   
 # prepare the data
-path = 'https://raw.githubusercontent.com/jbrownlee/Datasets/master/ionosphere.csv'
+#path = 'https://raw.githubusercontent.com/jbrownlee/Datasets/master/ionosphere.csv'
+path = '/Users/Andrew/Documents/Edinburgh/Chemisty ML/soap_transition_smallln.npy'
 train_dl, test_dl = prepare_data(path, -1)
 print(len(train_dl.dataset), len(test_dl.dataset))
 # define the network
-model = MLP(34)
+n_inputs = 924
+model = MLP(n_inputs)
 # train the model
-train_model(train_dl, model)
+#train_model(train_dl, model)
 # evaluate the model
 acc = evaluate_model(test_dl, model)
 print('Accuracy: %.3f' % acc)
 # make a single prediction (expect class=1)
-row = [1,0,0.99539,-0.05889,0.85243,0.02306,0.83398,-0.37708,1,0.03760,0.85243,-0.17755,0.59755,-0.44945,0.60536,-0.38223,0.84356,-0.38542,0.58212,-0.32192,0.56971,-0.29674,0.36946,-0.47357,0.56811,-0.51171,0.41078,-0.46168,0.21266,-0.34090,0.42267,-0.54487,0.18641,-0.45300]
-yhat = predict(row, model)
-print('Predicted: %.3f (class=%d)' % (yhat, yhat.round()))
+#row = [1,0,0.99539,-0.05889,0.85243,0.02306,0.83398,-0.37708,1,0.03760,0.85243,-0.17755,0.59755,-0.44945,0.60536,-0.38223,0.84356,-0.38542,0.58212,-0.32192,0.56971,-0.29674,0.36946,-0.47357,0.56811,-0.51171,0.41078,-0.46168,0.21266,-0.34090,0.42267,-0.54487,0.18641,-0.45300]
+#yhat = predict(row, model)
+#print('Predicted: %.3f (class=%d)' % (yhat, yhat.round()))
         
   

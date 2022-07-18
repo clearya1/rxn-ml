@@ -13,7 +13,7 @@ from ase import Atoms
 
 
 #read our data
-sample_df = pd.read_csv('/home/s2122199/Documents/Edinburgh/projects/IBM/rxn-ml/dataset/energies_coordinates.csv')
+sample_df = pd.read_csv('/Users/Andrew/Documents/Edinburgh/Chemisty ML/energies_coordinates.csv')
 #sample_df = sample_df.head()
 
 
@@ -84,5 +84,5 @@ for i, row in tqdm(sample_df.iterrows(),total = len(sample_df.index)):
         
    
     
-np.save('/home/s2122199/Documents/Edinburgh/projects/IBM/rxn-ml/dataset/soap_transition.npy',descriptor)
+np.save('/Users/Andrew/Documents/Edinburgh/Chemisty ML/soap_transition.npy',descriptor)
 
