@@ -119,77 +119,77 @@ class MLP(nn.Module):
         return self.layers(x)
     
       
-    if __name__ == '__main__':
-      
-        # Set fixed random number seed
-        torch.manual_seed(42)
-        
-        batch_size = 16
-        data_loaders = Data_Loaders(master_file, path, batch_size)
-        
-        trainloader = data_loaders.train_loader
-        testloader = data_loaders.test_loader
-        
-        # Initialize the MLP
-        mlp = MLP()
-        
-        # Define the loss function and optimizer
-        loss_function = nn.L1Loss()
-        optimizer = torch.optim.Adam(mlp.parameters(), lr=1e-4)
-      
-        # Run the training loop
-        for epoch in range(0, 5): # 5 epochs at maximum
-            # Print epoch
-            print(f'Starting epoch {epoch+1}')
-        
-            # Set current loss value
-            current_loss = 0.0
+if __name__ == '__main__':
+  
+    # Set fixed random number seed
+    torch.manual_seed(42)
     
-            # Iterate over the DataLoader for training data
-            for i, data in enumerate(trainloader, 0):
-          
-                # Get and prepare inputs
-                inputs, targets = data['coordinates'], data['energy']
-                # inputs, targets = inputs.float(), targets.float()
-                inputs = inputs.float()
-                # targets = targets.reshape((targets.shape[0], 1))
-                
-                # Zero the gradients
-                optimizer.zero_grad()
-                
-                # Perform forward pass
-                outputs = mlp(inputs)
-                
-                # Compute loss
-                loss = loss_function(outputs, targets)
-                
-                # Perform backward pass
-                loss.backward()
-                
-                # Perform optimization
-                optimizer.step()
-                
-                # Print statistics
-                current_loss += loss.item()
-                if i % 10 == 0:
-                    print('Loss after mini-batch %5d: %.3f' %
-                          (i + 1, current_loss / 500))
-                    current_loss = 0.0
+    batch_size = 16
+    data_loaders = Data_Loaders(master_file, path, batch_size)
+    
+    trainloader = data_loaders.train_loader
+    testloader = data_loaders.test_loader
+    
+    # Initialize the MLP
+    mlp = MLP()
+    
+    # Define the loss function and optimizer
+    loss_function = nn.L1Loss()
+    optimizer = torch.optim.Adam(mlp.parameters(), lr=1e-4)
+  
+    # Run the training loop
+    for epoch in range(0, 5): # 5 epochs at maximum
+        # Print epoch
+        print(f'Starting epoch {epoch+1}')
+    
+        # Set current loss value
+        current_loss = 0.0
 
-        # Process is complete.
-        print('Training process has finished.')
+        # Iterate over the DataLoader for training data
+        for i, data in enumerate(trainloader, 0):
+      
+            # Get and prepare inputs
+            inputs, targets = data['coordinates'], data['energy']
+            # inputs, targets = inputs.float(), targets.float()
+            inputs = inputs.float()
+            # targets = targets.reshape((targets.shape[0], 1))
+            
+            # Zero the gradients
+            optimizer.zero_grad()
+            
+            # Perform forward pass
+            outputs = mlp(inputs)
+            
+            # Compute loss
+            loss = loss_function(outputs, targets)
+            
+            # Perform backward pass
+            loss.backward()
+            
+            # Perform optimization
+            optimizer.step()
+            
+            # Print statistics
+            current_loss += loss.item()
+            if i % 10 == 0:
+                print('Loss after mini-batch %5d: %.3f' %
+                      (i + 1, current_loss / 500))
+                current_loss = 0.0
+
+# Process is complete.
+print('Training process has finished.')
   
-        #save model
-        # torch.save(mlp.state_dict(), './energy_regressor.pt')
-        #load model
-        # model = MLP()
-        # model.load_state_dict(torch.load('./energy_regressor.pt'))
+#save model
+# torch.save(mlp.state_dict(), './energy_regressor.pt')
+#load model
+# model = MLP()
+# model.load_state_dict(torch.load('./energy_regressor.pt'))
   
-        with torch.no_grad():
-            mlp.eval()
-            # test_inputs, test_targets = testloader['coordinates'], testloader['energy']
-              # inputs, targets = inputs.float(), targets.float()
-            # test_inputs = test_inputs.float()
-            # y_pred = mlp(test_inputs)
-            # test_loss = criterion(y_pred, test_targets)
+with torch.no_grad():
+    mlp.eval()
+    # test_inputs, test_targets = testloader['coordinates'], testloader['energy']
+      # inputs, targets = inputs.float(), targets.float()
+    # test_inputs = test_inputs.float()
+    # y_pred = mlp(test_inputs)
+    # test_loss = criterion(y_pred, test_targets)
 
