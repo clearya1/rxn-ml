@@ -15,6 +15,7 @@ from sklearn.metrics import accuracy_score
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 from torch.utils.data import random_split
+import torch.nn.functional as F
 from torch import nn
 from torch import Tensor
 from torch.nn import Linear
@@ -29,6 +30,9 @@ from torch.utils.data import IterableDataset
 from torchvision.datasets import DatasetFolder
 import torch
 import os, io
+from tqdm import tqdm
+import matplotlib.pyplot as plt
+
 
 #path to .soap files
 path = '/home/s1997751/Documents/PhD/Year2/ibm_project/data_files/qmrxn/'
@@ -49,7 +53,7 @@ class PathDataset(Dataset):
                 on a sample. -> could implement soap here if needed
         """
         self.files = np.load(folder_file)
-        self.files = self.files[:10000]
+        self.files = self.files#[:10000]
         #print(self.files)
         self.root_dir = root_dir
         self.transform = transform
@@ -68,7 +72,7 @@ class PathDataset(Dataset):
         ##to predict soap representation
         # transformer = np.loadtxt(str(self.root_dir) + str(self.files[idx][2]))
 
-        sample = {'coordinates': np.array([reactant,product], dtype=(float)), 'energy': np.array(transformer, dtype=(float))}
+        sample = {'coordinates': np.array(np.hstack((reactant,product)), dtype=(float)), 'energy': np.array(transformer, dtype=(float))}
 
         #if self.transform:
             #sample = self.transform(sample)
@@ -88,12 +92,6 @@ class Data_Loaders():
         self.train_loader = DataLoader(self.train_set, batch_size=batch_size)
         self.test_loader = DataLoader(self.test_set, batch_size=batch_size)
 
-   
-# batch_size = 16
-# data_loaders = Data_Loaders(master_file, path, batch_size)
-
-# train_features= next(iter(data_loaders.train_loader))
-# print(train_features['coordinates'].shape)
 
 
 
@@ -104,7 +102,7 @@ class MLP(nn.Module):
     def __init__(self):
         super().__init__()
         self.layers = nn.Sequential(
-        nn.Linear(56, 64),
+        nn.Linear(112, 64),
         nn.ReLU(),
         nn.Linear(64, 32),
         nn.ReLU(),
@@ -118,15 +116,94 @@ class MLP(nn.Module):
         '''
         return self.layers(x)
     
-      
+        
+def test(model, test_loader, loss_function):
+    model.eval()
+    running_loss=0
+    total=0
+
+    with torch.no_grad():
+      for data in tqdm(test_loader):
+        inputs, targets = data['coordinates'], data['energy']
+        inputs, targets = inputs.float(), targets.float()
+            
+            
+        outputs=model(inputs)
+        targets = targets.view(-1,1)
+        
+        loss=torch.sqrt(loss_function(outputs,targets))
+        running_loss+=loss.item()
+    
+        _, predicted = outputs.max(1)
+        total += targets.size(0)
+        # correct += predicted.eq(targets).sum().item()
+    
+    test_loss=running_loss/len(test_loader)
+    # accu=100.*correct/total
+    
+    eval_losses.append(test_loss)
+    # eval_accu.append(accu)
+    
+    print('Test Loss: %.3f' %(test_loss))
+
+
+
+def train_model(model, trainloader, loss_function, optimizer):
+    
+    epochs = 50
+    model.train()
+    running_loss_mean = list()
+    for e in range(epochs):
+        print(f'Starting epoch {e+1}')
+        train_loss = list()
+        for data in tqdm(trainloader):
+            inputs, targets = data['coordinates'], data['energy']
+            inputs, targets = inputs.float(), targets.float()
+            
+            # Transfer Data to GPU if available
+            if torch.cuda.is_available():
+                data = data.cuda()
+    
+            # Clear the gradients
+            optimizer.zero_grad()
+            # Forward Pass
+            outputs = model(inputs)
+            # Find the Loss
+            # print(outputs.shape, targets.shape)
+            targets = targets.view(-1,1)
+            loss = torch.sqrt(loss_function(outputs, targets))
+            # Calculate gradients 
+            loss.backward()
+            # Update Weights
+            optimizer.step()
+            # Calculate Loss
+            train_loss.append(loss.item())
+            
+        # running_loss.append(train_loss)
+        running_loss_mean.append(np.mean(train_loss))
+        print(f'Epoch {e+1} \t\t Training Loss: {torch.tensor(train_loss).mean():.2f}')
+    # plt.plot(np.ravel(running_loss))
+    plt.plot(running_loss_mean)
+    print('Training process has finished.')
+    return running_loss_mean
+
+    
+#%%
 if __name__ == '__main__':
+    
+    # batch_size = 16
+    # data_loaders = Data_Loaders(master_file, path, batch_size)
+    
+    # train_features= next(iter(data_loaders.train_loader))
+    # print(train_features['coordinates'].shape)
+    # print(train_features['energy'].shape)
   
     # Set fixed random number seed
-    torch.manual_seed(42)
+    # torch.manual_seed(42)
     
     batch_size = 16
     data_loaders = Data_Loaders(master_file, path, batch_size)
-    
+        
     trainloader = data_loaders.train_loader
     testloader = data_loaders.test_loader
     
@@ -134,62 +211,27 @@ if __name__ == '__main__':
     mlp = MLP()
     
     # Define the loss function and optimizer
-    loss_function = nn.L1Loss()
+    # loss_function = nn.L1Loss()
+    loss_function = nn.MSELoss()
     optimizer = torch.optim.Adam(mlp.parameters(), lr=1e-4)
-  
-    # Run the training loop
-    for epoch in range(0, 5): # 5 epochs at maximum
-        # Print epoch
-        print(f'Starting epoch {epoch+1}')
     
-        # Set current loss value
-        current_loss = 0.0
-
-        # Iterate over the DataLoader for training data
-        for i, data in enumerate(trainloader, 0):
-      
-            # Get and prepare inputs
-            inputs, targets = data['coordinates'], data['energy']
-            # inputs, targets = inputs.float(), targets.float()
-            inputs = inputs.float()
-            # targets = targets.reshape((targets.shape[0], 1))
-            
-            # Zero the gradients
-            optimizer.zero_grad()
-            
-            # Perform forward pass
-            outputs = mlp(inputs)
-            
-            # Compute loss
-            loss = loss_function(outputs, targets)
-            
-            # Perform backward pass
-            loss.backward()
-            
-            # Perform optimization
-            optimizer.step()
-            
-            # Print statistics
-            current_loss += loss.item()
-            if i % 10 == 0:
-                print('Loss after mini-batch %5d: %.3f' %
-                      (i + 1, current_loss / 500))
-                current_loss = 0.0
-
-# Process is complete.
-print('Training process has finished.')
+    loss_out = train_model(mlp, trainloader, loss_function, optimizer)
   
+   
+# Process is complete.
+
+  #%%
 #save model
-# torch.save(mlp.state_dict(), './energy_regressor.pt')
+torch.save(mlp.state_dict(), '/home/s1997751/Documents/PhD/Year2/ibm_project/temp/local_code/energy_regressor_1.pt')
 #load model
 # model = MLP()
-# model.load_state_dict(torch.load('./energy_regressor.pt'))
-  
-with torch.no_grad():
-    mlp.eval()
-    # test_inputs, test_targets = testloader['coordinates'], testloader['energy']
-      # inputs, targets = inputs.float(), targets.float()
-    # test_inputs = test_inputs.float()
-    # y_pred = mlp(test_inputs)
-    # test_loss = criterion(y_pred, test_targets)
+# model.load_state_dict(torch.load('/home/s1997751/Documents/PhD/Year2/ibm_project/temp/local_code/energy_regressor.pt'))
 
+#%%
+# model = MLP()
+# test_inputs, test_targets = data['coordinates'], data['energy']
+eval_accu, eval_losses  = list(), list()
+test(mlp, testloader,loss_function)
+
+#%%
+plt.loglog(loss_out)
