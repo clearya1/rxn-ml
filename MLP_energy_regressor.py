@@ -35,9 +35,9 @@ import matplotlib.pyplot as plt
 
 
 #path to .soap files
-path = '/home/s1997751/Documents/PhD/Year2/ibm_project/data_files/qmrxn/'
+path = '/Users/Andrew/Documents/Edinburgh/ChemistyML/data_files/qmrxn/'
 # file with tuples
-master_file = '/home/s1997751/Documents/PhD/Year2/ibm_project/data_files/qmrxn/tuple_list_energy.npy'
+master_file = '/Users/Andrew/Documents/Edinburgh/ChemistyML/data_files/qmrxn/tuple_list_energy.npy'
 
 
 # custom dataset definition
@@ -53,7 +53,7 @@ class PathDataset(Dataset):
                 on a sample. -> could implement soap here if needed
         """
         self.files = np.load(folder_file)
-        self.files = self.files#[:10000]
+        self.files = self.files[:1000]
         #print(self.files)
         self.root_dir = root_dir
         self.transform = transform
@@ -84,29 +84,29 @@ class Data_Loaders():
         self.path_dataset = PathDataset(master_file, path)
         # compute number of samples
         self.N_train = int(len(self.path_dataset) * 0.8)
-        self.N_test = len(self.path_dataset) - self.N_train
+        self.N_validate = int(len(self.path_dataset) * 0.1)
+        self.N_test = len(self.path_dataset) - self.N_train - self.N_validate
 
-        self.train_set, self.test_set = random_split(self.path_dataset, \
-                                      [self.N_train, self.N_test])
+        self.train_set, self.validate_set, self.test_set = random_split(self.path_dataset, \
+                                      [self.N_train, self.N_validate, self.N_test])
         
         self.train_loader = DataLoader(self.train_set, batch_size=batch_size)
+        self.validate_loader = DataLoader(self.validate_set, batch_size=batch_size)
         self.test_loader = DataLoader(self.test_set, batch_size=batch_size)
-
-
 
 
 class MLP(nn.Module):
     '''
     Multilayer Perceptron for regression.
     '''
-    def __init__(self):
+    def __init__(self, n1, n2):
         super().__init__()
         self.layers = nn.Sequential(
-        nn.Linear(112, 64),
+        nn.Linear(112, n1),
         nn.ReLU(),
-        nn.Linear(64, 32),
+        nn.Linear(n1, n2),
         nn.ReLU(),
-        nn.Linear(32, 1)
+        nn.Linear(n2, 1)
         )
     
     
@@ -119,8 +119,7 @@ class MLP(nn.Module):
         
 def test(model, test_loader, loss_function):
     model.eval()
-    running_loss=0
-    total=0
+    test_loss = list()
 
     with torch.no_grad():
       for data in tqdm(test_loader):
@@ -131,28 +130,22 @@ def test(model, test_loader, loss_function):
         outputs=model(inputs)
         targets = targets.view(-1,1)
         
-        loss=torch.sqrt(loss_function(outputs,targets))
-        running_loss+=loss.item()
+        loss=loss_function(outputs,targets)
+        test_loss.append(loss.item())
     
-        _, predicted = outputs.max(1)
-        total += targets.size(0)
-        # correct += predicted.eq(targets).sum().item()
+    rmse_test_loss=np.sqrt(np.mean(test_loss))
     
-    test_loss=running_loss/len(test_loader)
-    # accu=100.*correct/total
-    
-    eval_losses.append(test_loss)
-    # eval_accu.append(accu)
-    
-    print('Test Loss: %.3f' %(test_loss))
+    #print('Test Loss: %.3f' %(rmse_test_loss))
+    return rmse_test_loss
 
 
 
-def train_model(model, trainloader, loss_function, optimizer):
+def train_model(model, trainloader, validateloader, loss_function, optimizer):
     
-    epochs = 50
+    epochs = 100
     model.train()
     running_loss_mean = list()
+    running_validate_loss_mean = list()
     for e in range(epochs):
         print(f'Starting epoch {e+1}')
         train_loss = list()
@@ -163,6 +156,7 @@ def train_model(model, trainloader, loss_function, optimizer):
             # Transfer Data to GPU if available
             if torch.cuda.is_available():
                 data = data.cuda()
+                print("Using GPU")
     
             # Clear the gradients
             optimizer.zero_grad()
@@ -171,7 +165,7 @@ def train_model(model, trainloader, loss_function, optimizer):
             # Find the Loss
             # print(outputs.shape, targets.shape)
             targets = targets.view(-1,1)
-            loss = torch.sqrt(loss_function(outputs, targets))
+            loss = loss_function(outputs, targets)
             # Calculate gradients 
             loss.backward()
             # Update Weights
@@ -179,13 +173,16 @@ def train_model(model, trainloader, loss_function, optimizer):
             # Calculate Loss
             train_loss.append(loss.item())
             
+        rmse_validate_loss = test(model, validateloader, loss_function)
+            
         # running_loss.append(train_loss)
-        running_loss_mean.append(np.mean(train_loss))
-        print(f'Epoch {e+1} \t\t Training Loss: {torch.tensor(train_loss).mean():.2f}')
+        running_loss_mean.append(np.sqrt(np.mean(train_loss)))
+        running_validate_loss_mean.append(rmse_validate_loss)
+        print(f'Epoch {e+1} \t Training Loss: {running_loss_mean[-1]:.2f} \t Validation Loss: {running_validate_loss_mean[-1]:.2f}')
     # plt.plot(np.ravel(running_loss))
-    plt.plot(running_loss_mean)
+    #plt.plot(running_loss_mean)
     print('Training process has finished.')
-    return running_loss_mean
+    return running_loss_mean, running_validate_loss_mean
 
     
 #%%
@@ -205,33 +202,48 @@ if __name__ == '__main__':
     data_loaders = Data_Loaders(master_file, path, batch_size)
         
     trainloader = data_loaders.train_loader
+    validateloader = data_loaders.validate_loader
     testloader = data_loaders.test_loader
     
     # Initialize the MLP
-    mlp = MLP()
+    n1 = 64
+    n2 = 32
+    mlp = MLP(n1, n2)
     
     # Define the loss function and optimizer
     # loss_function = nn.L1Loss()
     loss_function = nn.MSELoss()
-    optimizer = torch.optim.Adam(mlp.parameters(), lr=1e-4)
+    optimizer = torch.optim.Adam(mlp.parameters(), lr=1e-2)
     
-    loss_out = train_model(mlp, trainloader, loss_function, optimizer)
+    loss_out, validate_loss_out = train_model(mlp, trainloader, validateloader, loss_function, optimizer)
+    
+    os.mkdir('TrainingResults/'+str(n1)+'_'+str(n2)+'_batchsize'+str(batch_size))
+    np.save('TrainingResults/'+str(n1)+'_'+str(n2)+'_batchsize'+str(batch_size)+'/training_loss.npy', loss_out)
+    np.save('TrainingResults/'+str(n1)+'_'+str(n2)+'_batchsize'+str(batch_size)+'/validation_loss.npy', validate_loss_out)
+    
+    test_loss = test(mlp, testloader,loss_function)
+    print('Test Loss = ', test_loss)
+    
+    """
   
    
-# Process is complete.
+    # Process is complete.
 
-  #%%
-#save model
-torch.save(mlp.state_dict(), '/home/s1997751/Documents/PhD/Year2/ibm_project/temp/local_code/energy_regressor_1.pt')
-#load model
-# model = MLP()
-# model.load_state_dict(torch.load('/home/s1997751/Documents/PhD/Year2/ibm_project/temp/local_code/energy_regressor.pt'))
+      #%%
+    #save model
+    torch.save(mlp.state_dict(), '/home/s1997751/Documents/PhD/Year2/ibm_project/temp/local_code/energy_regressor_1.pt')
+    #load model
+    # model = MLP()
+    # model.load_state_dict(torch.load('/home/s1997751/Documents/PhD/Year2/ibm_project/temp/local_code/energy_regressor.pt'))
 
-#%%
-# model = MLP()
-# test_inputs, test_targets = data['coordinates'], data['energy']
-eval_accu, eval_losses  = list(), list()
-test(mlp, testloader,loss_function)
+    #%%
+    # model = MLP()
+    # test_inputs, test_targets = data['coordinates'], data['energy']
+    eval_accu, eval_losses  = list(), list()
+    test(mlp, testloader,loss_function)
 
-#%%
-plt.loglog(loss_out)
+    #%%
+    fig, ax = plt.subplots(1,1)
+    ax.loglog(loss_out)
+    fig.savefig('training_curve_')
+"""
