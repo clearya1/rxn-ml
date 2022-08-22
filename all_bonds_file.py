@@ -23,8 +23,9 @@ acsf = ACSF(
 
 
      
-files = np.load(tuple_file)[:100]
-array = np.empty(562)
+files = np.load(tuple_file)[:10000]
+array = np.zeros((1000000, 562),dtype = object)
+k=0
 
 for idx in tqdm(range(len(files)),total = len(files)):
     
@@ -42,7 +43,10 @@ for idx in tqdm(range(len(files)),total = len(files)):
     # atom = Atoms(mol_name,pos)
     # product = acsf.create(atom, positions = np.arange(len(coords[0])))
                 
-    coords = pd.read_csv(str(xyz_dir) + str(files[idx][2])[:-4] + 'xyz', skiprows = 2, delim_whitespace = True, header = None)
+    coords = pd.read_csv(str(xyz_dir) + str(files[idx][1])[:-4] + 'xyz', skiprows = 2, delim_whitespace = True, header = None)
+    
+    #for use with product
+    #coords = pd.read_csv(str(xyz_dir) + str(files[idx][2])[:-4] + 'xyz', skiprows = 2, delim_whitespace = True, header = None)
     mol_name = ''.join(coords[0])
     pos = np.array(coords[[1,2,3]])
     atoms  = coords[0]
@@ -53,12 +57,16 @@ for idx in tqdm(range(len(files)),total = len(files)):
             dist = np.linalg.norm(pos[i]-pos[j])
             label = ''.join(np.sort([atom1, atom2]))
             vector_concat = np.append(reactant[i], reactant[i+j] ) #could include product here as well (change dim of array def at the beginning)
-            array = np.vstack((array, np.append(label, np.append(vector_concat, dist))))
+            #array[k] = np.vstack((array, np.append(label, np.append(vector_concat, dist))))
+            array[k] = np.append(label, np.append(vector_concat, dist))
+            k+=1
     
+mask = array[:,0] != 0
+array = array[mask]
 
-   
-df = pd.DataFrame(array[1:])     
-df = df.rename(columns = {0: 'label', 561: 'dist'})     
+np.save(xyz_dir + 'bonds.npy',array)  
+#df = pd.DataFrame(array)     
+#df = df.rename(columns = {0: 'label', 561: 'dist'})     
 
-df.to_csv(xyz_dir + 'bonds.csv')
+#df.to_csv(xyz_dir + 'bonds.csv')
 

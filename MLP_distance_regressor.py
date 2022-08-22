@@ -18,6 +18,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from concurrent.futures import ProcessPoolExecutor
 from os import listdir
+from pathlib import Path
 
 # custom dataset definition
 class CSVDataset(Dataset):
@@ -119,7 +120,7 @@ def train_and_test_model(path):
     epochs = 10
     model = MLP(256, 128, 64)
     loss_function = nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-1)
     batch_size = 8
     
     # create data loaders
@@ -172,27 +173,41 @@ def train_and_test_model(path):
     #print('Training process has finished.')
     print(f'Model {label}, Test Loss: {test_loss:.2f}')
     
+    return label, running_loss_mean, running_validate_loss_mean, test_loss, model.state_dict()
+    
     # save the model and also the training and validation curves and testing loss
     
-    results_path = 'DistanceModels/'+label
-    os.mkdir(results_path)
+    # results_path = '/home/s2122199/Documents/Edinburgh/projects/IBM/data/QMrxn/geometries/DistanceModels/'+label
+    # print(results_path)
+    # os.mkdir(results_path)
     
-    torch.save(model.state_dict(), results_path+'/model')
-    np.save(results_path+'/training_loss.npy', running_loss_mean)
-    np.save(results_path+'/validation_loss.npy', running_validate_loss_mean)
-    np.save(results_path+'/test_loss.npy', test_loss)
+    
+    # torch.save(model.state_dict(), results_path+'/model')
+    # np.save(results_path+'/training_loss.npy', running_loss_mean)
+    # np.save(results_path+'/validation_loss.npy', running_validate_loss_mean)
+    # np.save(results_path+'/test_loss.npy', test_loss)
     
     #return running_loss_mean, running_validate_loss_mean, test_loss
 
     
-#%%
+####%%
 if __name__ == '__main__':
     
     # create list of paths to files
-    folder_path = '/Users/Andrew/Documents/Edinburgh/ChemistyML/bond_files1/'
+    #folder_path = '/Users/Andrew/Documents/Edinburgh/ChemistyML/bond_files1/'
+    folder_path = '/home/s2122199/Documents/Edinburgh/projects/IBM/data/QMrxn/geometries/small_bonds/'
     paths = [folder_path+temp for temp in listdir(folder_path)]
+    names = listdir(folder_path)
   
     with ProcessPoolExecutor(max_workers=4) as executor:
-      tqdm(executor.map(train_and_test_model, paths), total=len(paths))
+      results = list(tqdm(executor.map(train_and_test_model, paths), total=len(paths)))
     
-
+    for i in results:
+        results_path = '/home/s2122199/Documents/Edinburgh/projects/IBM/data/QMrxn/geometries/DistanceModels_difflearning/' + i[0]
+        if not Path(results_path).exists():
+            Path(results_path).mkdir(parents = True)
+        np.save(results_path+'/training_loss.npy', i[1])
+        np.save(results_path+'/validation_loss.npy', i[2])
+        np.save(results_path+'/test_loss.npy', i[3])
+        torch.save(i[4], results_path+'/model')
+        
