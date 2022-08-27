@@ -42,10 +42,33 @@ class CSVDataset(Dataset):
   # get a row at an index
   def __getitem__(self, idx):
     return [self.X[idx], self.y[idx]]
+
+class TXTDataset(Dataset):
+  # load the dataset
+  def __init__(self, path):
+    # load the csv file as a dataframe
+    df = np.loadtxt(path,dtype = object, delimiter = ',')
+    # store the inputs and outputs
+    self.X = df[0:, 1:-1]
+    self.y = df[:, -1]
+    # ensure input and output data is floats
+    self.X = self.X.astype('float32')
+    self.y = self.y.astype('float32')
+    self.y = self.y.reshape((len(self.y), 1))
+    self.label = str(df[0,0])
+
+  # number of rows in the dataset
+  def __len__(self):
+    return len(self.X)
+
+  # get a row at an index
+  def __getitem__(self, idx):
+    return [self.X[idx], self.y[idx]]
+    
     
 class Data_Loaders():
     def __init__(self, path, batch_size, split_prop=0.8):
-        self.path_dataset = CSVDataset(path)
+        self.path_dataset = TXTDataset(path)
         self.label = self.path_dataset.label
         
         # compute number of samples
@@ -73,7 +96,7 @@ class MLP(nn.Module):
     def __init__(self, n1, n2, n3):
         super().__init__()
         self.layers = nn.Sequential(
-        nn.Linear(560, n1),
+        nn.Linear(1120, n1),
         nn.ReLU(),
         nn.Linear(n1, n2),
         nn.ReLU(),
@@ -195,7 +218,7 @@ if __name__ == '__main__':
     
     # create list of paths to files
     #folder_path = '/Users/Andrew/Documents/Edinburgh/ChemistyML/bond_files1/'
-    folder_path = '/home/s2122199/Documents/Edinburgh/projects/IBM/data/QMrxn/geometries/small_bonds/'
+    folder_path = '/home/s2122199/Documents/Edinburgh/projects/IBM/data/QMrxn/geometries/bonds_small/'
     paths = [folder_path+temp for temp in listdir(folder_path)]
     names = listdir(folder_path)
   
@@ -203,7 +226,7 @@ if __name__ == '__main__':
       results = list(tqdm(executor.map(train_and_test_model, paths), total=len(paths)))
     
     for i in results:
-        results_path = '/home/s2122199/Documents/Edinburgh/projects/IBM/data/QMrxn/geometries/DistanceModels_difflearning/' + i[0]
+        results_path = '/home/s2122199/Documents/Edinburgh/projects/IBM/data/QMrxn/geometries/DistanceModels_test/' + i[0]
         if not Path(results_path).exists():
             Path(results_path).mkdir(parents = True)
         np.save(results_path+'/training_loss.npy', i[1])
