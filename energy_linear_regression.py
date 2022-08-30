@@ -5,9 +5,6 @@ Created on Mon Aug  8 10:49:50 2022
 
 @author: s2113337
 
-load pickle file of no prod energies 
-
-do sklearn models on it?
 
 """
 
