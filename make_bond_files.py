@@ -65,12 +65,12 @@ for idx in tqdm(range(len(files)),total = len(files)):
         
         
         for i, atom1 in enumerate(atoms):
-            for j, atom2 in enumerate(atoms[i:]):
+            for j, atom2 in enumerate(atoms[i+1:],start=i+1):
                 dist = np.linalg.norm(pos[i]-pos[j])
                 label = ''.join(np.sort([atom1, atom2]))
             
-                vector_concat = np.append(reactant[i], reactant[i+j] ) #could include product here as well (change dim of array def at the beginning)
-                vector_prod = np.append(product[i], product[i+j])
+                vector_concat = np.append(reactant[i], reactant[j] ) #could include product here as well (change dim of array def at the beginning)
+                vector_prod = np.append(product[i], product[j])
                 vector_concat = np.append(vector_concat, vector_prod)
                 arr = np.append(label, np.append(vector_concat, dist))
                 with open(bond_dir+ str(label)+ '.txt','a') as bondfile:
