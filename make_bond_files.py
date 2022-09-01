@@ -13,8 +13,8 @@ from pathlib import Path
 from tqdm import tqdm
 
 #path to .soap/ xyz files + where the master file will be saved
-xyz_dir = '/home/s2122199/Documents/Edinburgh/projects/IBM/data/QMrxn/geometries/'
-tuple_file = '/home/s2122199/Documents/Edinburgh/projects/IBM/rxn-ml/file_lists/tuple_list.npy'
+xyz_dir = '/home/s1997751/Documents/PhD/Year2/ibm_project/data_files/qmrxn/'
+tuple_file = '/home/s1997751/Documents/PhD/Year2/ibm_project/data_files/qmrxn/tuple_list.npy'
 
 bond_dir = xyz_dir + 'bonds_files_withprod/'
 
@@ -36,7 +36,7 @@ acsf = ACSF(
 
 
      
-files = np.load(tuple_file)
+files = np.load(tuple_file)[:10000]
 
 
 for idx in tqdm(range(len(files)),total = len(files)):
@@ -49,13 +49,13 @@ for idx in tqdm(range(len(files)),total = len(files)):
         
         
         ##not including product at the moment        
-        coords = pd.read_csv(str(xyz_dir) + str(files[idx][1])[:-4] + 'xyz', skiprows = 2, delim_whitespace = True, header = None)
-        mol_name = ''.join(coords[0])
-        pos = np.array(coords[[1,2,3]])
-        atom = Atoms(mol_name,pos)
-        product = acsf.create(atom, positions = np.arange(len(coords[0])))
+        # coords = pd.read_csv(str(xyz_dir) + str(files[idx][1])[:-4] + 'xyz', skiprows = 2, delim_whitespace = True, header = None)
+        # mol_name = ''.join(coords[0])
+        # pos = np.array(coords[[1,2,3]])
+        # atom = Atoms(mol_name,pos)
+        # product = acsf.create(atom, positions = np.arange(len(coords[0])))
                     
-        coords = pd.read_csv(str(xyz_dir) + str(files[idx][1])[:-4] + 'xyz', skiprows = 2, delim_whitespace = True, header = None)
+        coords = pd.read_csv(str(xyz_dir) + str(files[idx][2])[:-4] + 'xyz', skiprows = 2, delim_whitespace = True, header = None)
         
         #for use with product
         #coords = pd.read_csv(str(xyz_dir) + str(files[idx][2])[:-4] + 'xyz', skiprows = 2, delim_whitespace = True, header = None)
@@ -70,8 +70,8 @@ for idx in tqdm(range(len(files)),total = len(files)):
                 label = ''.join(np.sort([atom1, atom2]))
             
                 vector_concat = np.append(reactant[i], reactant[j] ) #could include product here as well (change dim of array def at the beginning)
-                vector_prod = np.append(product[i], product[j])
-                vector_concat = np.append(vector_concat, vector_prod)
+                # vector_prod = np.append(product[i], product[j])
+                # vector_concat = np.append(vector_concat, vector_prod)
                 arr = np.append(label, np.append(vector_concat, dist))
                 with open(bond_dir+ str(label)+ '.txt','a') as bondfile:
                     np.savetxt(bondfile, [arr], fmt='%s',delimiter = ',')
