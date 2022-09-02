@@ -96,14 +96,13 @@ class MLP(nn.Module):
     def __init__(self, n1, n2, n3):
         super().__init__()
         self.layers = nn.Sequential(
-        nn.Linear(1120, n1),
+        nn.Linear(560, n1),
         nn.ReLU(),
         nn.Linear(n1, n2),
         nn.ReLU(),
         nn.Linear(n2, n3),
         nn.ReLU(),
-        nn.Linear(n3, 1),
-        nn.ReLU(),
+        nn.Linear(n3, 1)
         )
     
     
@@ -112,11 +111,17 @@ class MLP(nn.Module):
       Forward pass
         '''
         return self.layers(x)
-    
+   
+def rmsre(outputs, targets):
+    '''
+    Root mean squared relative error
+    '''
+
+    return torch.sqrt(torch.mean(torch.pow(torch.div(torch.sub(outputs,targets),targets),2)))
         
 def test(model, test_loader, loss_function):
     model.eval()
-    test_loss = list()
+    test_loss = []
 
     with torch.no_grad():
       for data in test_loader:
@@ -130,7 +135,7 @@ def test(model, test_loader, loss_function):
         loss=loss_function(outputs,targets)
         test_loss.append(loss.item())
     
-    rmse_test_loss=np.sqrt(np.mean(test_loss))
+    rmse_test_loss=np.sqrt(np.mean(np.array(test_loss)**2))
     
     #print('Test Loss: %.3f' %(rmse_test_loss))
     return rmse_test_loss
@@ -142,7 +147,8 @@ def train_and_test_model(path):
     # setting parameters here as input must only be path to dataset
     epochs = 10
     model = MLP(256, 128, 64)
-    loss_function = nn.MSELoss()
+    #loss_function = nn.MSELoss()
+    loss_function = rmsre
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-1)
     batch_size = 8
     
@@ -155,8 +161,8 @@ def train_and_test_model(path):
     
     # start training
     model.train()
-    running_loss_mean = list()
-    running_validate_loss_mean = list()
+    running_loss_mean = []
+    running_validate_loss_mean = []
     for e in tqdm(range(epochs)):
         #print(f'Starting epoch {e+1}')
         train_loss = list()
@@ -187,9 +193,9 @@ def train_and_test_model(path):
             
         rmse_validate_loss = test(model, validateloader, loss_function)
             
-        running_loss_mean.append(np.sqrt(np.mean(train_loss)))
-        running_validate_loss_mean.append(rmse_validate_loss)
-        #print(f'Epoch {e+1} \t Training Loss: {running_loss_mean[-1]:.2f} \t Validation Loss: {running_validate_loss_mean[-1]:.2f}')
+        running_loss_mean.append(np.sqrt(np.mean(np.array(train_loss)**2)))
+        running_validate_loss_mean.append(np.array(rmse_validate_loss)**2)
+        print(f'Bond {label}: Epoch {e+1} \t Training Loss: {running_loss_mean[-1]:.2f} \t Validation Loss: {running_validate_loss_mean[-1]:.2f}')
 
     # test the model
     test_loss = test(model, testloader, loss_function)
@@ -218,7 +224,7 @@ if __name__ == '__main__':
     
     # create list of paths to files
     #folder_path = '/Users/Andrew/Documents/Edinburgh/ChemistyML/bond_files1/'
-    folder_path = '/home/s2122199/Documents/Edinburgh/projects/IBM/data/QMrxn/geometries/bonds_small/'
+    folder_path = '/home/acleary/data_files/qmrxn/bonds_files_withoutprod/'
     paths = [folder_path+temp for temp in listdir(folder_path)]
     names = listdir(folder_path)
   
@@ -226,7 +232,7 @@ if __name__ == '__main__':
       results = list(tqdm(executor.map(train_and_test_model, paths), total=len(paths)))
     
     for i in results:
-        results_path = '/home/s2122199/Documents/Edinburgh/projects/IBM/data/QMrxn/geometries/DistanceModels_test/' + i[0]
+        results_path = '/home/acleary/data_files/qmrxn/DistanceModels_withoutprod/'+i[0]
         if not Path(results_path).exists():
             Path(results_path).mkdir(parents = True)
         np.save(results_path+'/training_loss.npy', i[1])
