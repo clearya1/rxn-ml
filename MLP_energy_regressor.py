@@ -115,6 +115,13 @@ class MLP(nn.Module):
       Forward pass
         '''
         return self.layers(x)
+        
+def rmsre(outputs, targets):
+    '''
+    Root mean squared relative error
+    '''
+
+    return torch.sqrt(torch.mean(torch.pow(torch.div(torch.sub(outputs,targets),targets),2)))
     
         
 def test(model, test_loader, loss_function):
@@ -133,7 +140,7 @@ def test(model, test_loader, loss_function):
         loss=loss_function(outputs,targets)
         test_loss.append(loss.item())
     
-    rmse_test_loss=np.sqrt(np.mean(test_loss))
+    rmse_test_loss=np.sqrt(np.mean(np.array(test_loss)**2))
     
     #print('Test Loss: %.3f' %(rmse_test_loss))
     return rmse_test_loss
@@ -176,8 +183,8 @@ def train_model(model, trainloader, validateloader, loss_function, optimizer):
         rmse_validate_loss = test(model, validateloader, loss_function)
             
         # running_loss.append(train_loss)
-        running_loss_mean.append(np.sqrt(np.mean(train_loss)))
-        running_validate_loss_mean.append(rmse_validate_loss)
+        running_loss_mean.append(np.sqrt(np.mean(np.array(train_loss)**2)))
+        running_validate_loss_mean.append(np.array(rmse_validate_loss)**2)
         print(f'Epoch {e+1} \t Training Loss: {running_loss_mean[-1]:.2f} \t Validation Loss: {running_validate_loss_mean[-1]:.2f}')
     # plt.plot(np.ravel(running_loss))
     #plt.plot(running_loss_mean)
@@ -212,7 +219,7 @@ if __name__ == '__main__':
     
     # Define the loss function and optimizer
     # loss_function = nn.L1Loss()
-    loss_function = nn.MSELoss()
+    loss_function = rmsre
     optimizer = torch.optim.Adam(mlp.parameters(), lr=1e-2)
     
     loss_out, validate_loss_out = train_model(mlp, trainloader, validateloader, loss_function, optimizer)
@@ -223,27 +230,3 @@ if __name__ == '__main__':
     
     test_loss = test(mlp, testloader,loss_function)
     print('Test Loss = ', test_loss)
-    
-    """
-  
-   
-    # Process is complete.
-
-      #%%
-    #save model
-    torch.save(mlp.state_dict(), '/home/s1997751/Documents/PhD/Year2/ibm_project/temp/local_code/energy_regressor_1.pt')
-    #load model
-    # model = MLP()
-    # model.load_state_dict(torch.load('/home/s1997751/Documents/PhD/Year2/ibm_project/temp/local_code/energy_regressor.pt'))
-
-    #%%
-    # model = MLP()
-    # test_inputs, test_targets = data['coordinates'], data['energy']
-    eval_accu, eval_losses  = list(), list()
-    test(mlp, testloader,loss_function)
-
-    #%%
-    fig, ax = plt.subplots(1,1)
-    ax.loglog(loss_out)
-    fig.savefig('training_curve_')
-"""
