@@ -12,10 +12,11 @@ from torch.nn import Linear
 from torch.nn import ReLU
 from torch.nn import Sigmoid
 from torch.nn import Module
-from torch.optim import SGD
+from torch.optim import Adam
 from torch.nn import BCELoss
 from torch.nn.init import kaiming_uniform_
 from torch.nn.init import xavier_uniform_
+import matplotlib.pyplot as plt
 
 # custom dataset definition
 class CSVDataset(Dataset):
@@ -99,9 +100,9 @@ class MLP(Module):
     kaiming_uniform_(self.hidden1.weight, nonlinearity='relu')
     self.act1 = ReLU()
     # second hidden layer
-    self.hidden2 = Linear(64, 64)
-    kaiming_uniform_(self.hidden2.weight, nonlinearity='relu')
-    self.act2 = ReLU()
+    #self.hidden2 = Linear(64, 64)
+    #kaiming_uniform_(self.hidden2.weight, nonlinearity='relu')
+    #self.act2 = ReLU()
     # third hidden layer and output
     self.hidden3 = Linear(64, 1)
     xavier_uniform_(self.hidden3.weight)
@@ -113,8 +114,8 @@ class MLP(Module):
     X = self.hidden1(X)
     X = self.act1(X)
      # second hidden layer
-    X = self.hidden2(X)
-    X = self.act2(X)
+    #X = self.hidden2(X)
+    #X = self.act2(X)
     # third hidden layer and output
     X = self.hidden3(X)
     X = self.act3(X)
@@ -127,19 +128,21 @@ def prepare_data(path, y_label):
   # calculate split
   train, test = dataset.get_splits()
   # prepare data loaders
-  train_dl = DataLoader(train, batch_size=1024, shuffle=True)
-  test_dl = DataLoader(test, batch_size=1024, shuffle=False)
+  train_dl = DataLoader(train, batch_size=4098, shuffle=True)
+  test_dl = DataLoader(test, batch_size=4098, shuffle=False)
   return train_dl, test_dl
   
 # train the model
 def train_model(train_dl, model):
   # define the optimization
   criterion = BCELoss()
-  optimizer = SGD(model.parameters(), lr=0.01, momentum=0.9)
+  optimizer = Adam(model.parameters(), lr=0.01)
+  running_loss_mean = list()
   # enumerate epochs
-  for epoch in range(100):
+  for epoch in range(150):
     # enumerate mini batches
-    print('Epoch ', epoch, '/100')
+    print('Epoch ', epoch, '/150')
+    train_loss = list()
     for i, (inputs, targets) in enumerate(train_dl):
       # clear the gradients
       optimizer.zero_grad()
@@ -151,6 +154,14 @@ def train_model(train_dl, model):
       loss.backward()
       # update model weights
       optimizer.step()
+      # save loss from minibatch
+      train_loss.append(loss.item())
+    
+    epochloss = np.mean(np.array(train_loss))
+    running_loss_mean.append(epochloss)
+    print('Training Loss = ', epochloss)
+    
+  return running_loss_mean
       
 # evaluate the model
 def evaluate_model(test_dl, model):
@@ -184,20 +195,24 @@ def predict(row, model):
   
 # prepare the data
 #path = 'https://raw.githubusercontent.com/jbrownlee/Datasets/master/ionosphere.csv'
-path = '/Users/Andrew/Documents/Edinburgh/Chemisty ML/soap_transition_smallln.npy'
+path = '/Users/Andrew/Documents/Edinburgh/ChemistyML/soap_transition_n1l0.npy'
 train_dl, test_dl = prepare_data(path, -1)
 print(len(train_dl.dataset), len(test_dl.dataset))
 # define the network
-n_inputs = 924
+n_inputs = 28
 model = MLP(n_inputs)
 # train the model
-#train_model(train_dl, model)
+trainingloss = train_model(train_dl, model)
 # evaluate the model
 acc = evaluate_model(test_dl, model)
 print('Accuracy: %.3f' % acc)
-# make a single prediction (expect class=1)
-#row = [1,0,0.99539,-0.05889,0.85243,0.02306,0.83398,-0.37708,1,0.03760,0.85243,-0.17755,0.59755,-0.44945,0.60536,-0.38223,0.84356,-0.38542,0.58212,-0.32192,0.56971,-0.29674,0.36946,-0.47357,0.56811,-0.51171,0.41078,-0.46168,0.21266,-0.34090,0.42267,-0.54487,0.18641,-0.45300]
-#yhat = predict(row, model)
-#print('Predicted: %.3f (class=%d)' % (yhat, yhat.round()))
+
+print(trainingloss)
+
+plt.plot(np.arange(1,151,1), trainingloss)
+plt.yscale('log')
+plt.xlabel('Epoch')
+plt.ylabel('BCE Loss')
+plt.show()
         
   
