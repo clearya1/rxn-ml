@@ -24,7 +24,7 @@ These instructions will get you a copy of the project up and running on your loc
 2. data\_sorter.py
 3. MLP\_energy\_regressor.py
 
-## Workflow for Classification of Transition States
+## Workflow for Interatomic Distances Multilayer Perceptron Regression
 
 1. distancebond.py
 2. make\_bond\_files.py
