@@ -35,9 +35,9 @@ import matplotlib.pyplot as plt
 
 
 #path to .soap files
-path = '/Users/Andrew/Documents/Edinburgh/ChemistyML/data_files/qmrxn/'
+path = '/home/acleary/data_files/qmrxn/'
 # file with tuples
-master_file = '/Users/Andrew/Documents/Edinburgh/ChemistyML/data_files/qmrxn/tuple_list_energy.npy'
+master_file = '/home/acleary/data_files/qmrxn/tuple_list_energy.npy'
 
 
 # custom dataset definition
@@ -53,7 +53,7 @@ class PathDataset(Dataset):
                 on a sample. -> could implement soap here if needed
         """
         self.files = np.load(folder_file)
-        self.files = self.files[:1000]
+        self.files = self.files[:]
         #print(self.files)
         self.root_dir = root_dir
         self.transform = transform
@@ -72,8 +72,9 @@ class PathDataset(Dataset):
         ##to predict soap representation
         # transformer = np.loadtxt(str(self.root_dir) + str(self.files[idx][2]))
 
-        sample = {'coordinates': np.array(np.hstack((reactant,product)), dtype=(float)), 'energy': np.array(transformer, dtype=(float))}
+        #sample = {'coordinates': np.array(np.hstack((reactant,product)), dtype=(float)), 'energy': np.array(transformer, dtype=(float))}
 
+        sample = {'coordinates': np.array(reactant, dtype=(float)), 'energy': np.array(transformer, dtype=(float))}
         #if self.transform:
             #sample = self.transform(sample)
        
@@ -102,7 +103,7 @@ class MLP(nn.Module):
     def __init__(self, n1, n2):
         super().__init__()
         self.layers = nn.Sequential(
-        nn.Linear(112, n1),
+        nn.Linear(56, n1),
         nn.ReLU(),
         nn.Linear(n1, n2),
         nn.ReLU(),
@@ -149,7 +150,7 @@ def test(model, test_loader, loss_function):
 
 def train_model(model, trainloader, validateloader, loss_function, optimizer):
     
-    epochs = 100
+    epochs = 150
     model.train()
     running_loss_mean = list()
     running_validate_loss_mean = list()
@@ -185,7 +186,7 @@ def train_model(model, trainloader, validateloader, loss_function, optimizer):
         # running_loss.append(train_loss)
         running_loss_mean.append(np.sqrt(np.mean(np.array(train_loss)**2)))
         running_validate_loss_mean.append(np.array(rmse_validate_loss)**2)
-        print(f'Epoch {e+1} \t Training Loss: {running_loss_mean[-1]:.2f} \t Validation Loss: {running_validate_loss_mean[-1]:.2f}')
+        print(f'Epoch {e+1} \t Training Loss: {running_loss_mean[-1]:.5f} \t Validation Loss: {running_validate_loss_mean[-1]:.5f}')
     # plt.plot(np.ravel(running_loss))
     #plt.plot(running_loss_mean)
     print('Training process has finished.')
@@ -224,9 +225,9 @@ if __name__ == '__main__':
     
     loss_out, validate_loss_out = train_model(mlp, trainloader, validateloader, loss_function, optimizer)
     
-    os.mkdir('TrainingResults/'+str(n1)+'_'+str(n2)+'_batchsize'+str(batch_size))
-    np.save('TrainingResults/'+str(n1)+'_'+str(n2)+'_batchsize'+str(batch_size)+'/training_loss.npy', loss_out)
-    np.save('TrainingResults/'+str(n1)+'_'+str(n2)+'_batchsize'+str(batch_size)+'/validation_loss.npy', validate_loss_out)
+    os.mkdir('TrainingResultsNoProd/'+str(n1)+'_'+str(n2)+'_batchsize'+str(batch_size))
+    np.save('TrainingResultsNoProd/'+str(n1)+'_'+str(n2)+'_batchsize'+str(batch_size)+'/training_loss.npy', loss_out)
+    np.save('TrainingResultsNoProd/'+str(n1)+'_'+str(n2)+'_batchsize'+str(batch_size)+'/validation_loss.npy', validate_loss_out)
     
     test_loss = test(mlp, testloader,loss_function)
     print('Test Loss = ', test_loss)
