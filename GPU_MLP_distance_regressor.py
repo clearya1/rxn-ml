@@ -49,15 +49,15 @@ class TXTDataset(Dataset):
   # load the dataset
   def __init__(self, path):
     # load the csv file as a dataframe
-    df = np.loadtxt(path,dtype = object, delimiter = ',')
+    df = np.load(path,dtype = object)
     # store the inputs and outputs
-    self.X = df[0:, 1:-1]
-    self.y = df[:, -1]
+    self.X = df[1:-1]
+    self.y = df[-1]
     # ensure input and output data is floats
     self.X = self.X.astype('float32')
     self.y = self.y.astype('float32')
     self.y = self.y.reshape((len(self.y), 1))
-    self.label = str(df[0,0])
+    self.label = str(df[0])
 
   # number of rows in the dataset
   def __len__(self):
@@ -67,10 +67,43 @@ class TXTDataset(Dataset):
   def __getitem__(self, idx):
     return [self.X[idx], self.y[idx]]
     
+
+class PathDataset(Dataset):
+
+    def __init__(self, folder_file):
+        """
+        Args:
+            csv_file (string): Path to the csv file with annotations.
+            root_dir (string): Directory with types of directories.
+            transform (callable, optional): Optional transform to be applied
+                on a sample. -> could implement soap here if needed
+        """
+        self.files = np.load(folder_file)
+        self.files = self.files[:10000]
+        #print(self.files)
+        self.label = str(folder_file.split("/")[-1][:-4])
+        
+    def __len__(self):
+        return len(self.files)
+
+    def __getitem__(self, idx):
+        sample = np.load(str(self.files[idx]),allow_pickle=True)
+        
+        # store the inputs and outputs
+        self.X = sample[1:-1]
+        self.y = np.array([sample[-1]])
+        # ensure input and output data is floats
+        self.X = self.X.astype('float32')
+        self.y = self.y.astype('float32')
+        # self.X = self.X.reshape((len(self.X), 1))
+        # self.y = self.y.reshape((len(self.y), 1))
+        
+        return [self.X, self.y]
+
     
 class Data_Loaders():
-    def __init__(self, path, batch_size, split_prop=0.8):
-        self.path_dataset = TXTDataset(path)
+    def __init__(self, master_file, batch_size, split_prop=0.8):
+        self.path_dataset = PathDataset(master_file)
         self.label = self.path_dataset.label
         
         # compute number of samples
@@ -144,8 +177,8 @@ def test(model, test_loader, loss_function):
         
         loss=loss_function(outputs,targets)
         test_loss.append(loss.item())
-    
-	rmse_test_loss=np.sqrt(np.mean(np.array(test_loss)**2))
+        
+    rmse_test_loss=np.sqrt(np.mean(np.array(test_loss)**2))
     
     #print('Test Loss: %.3f' %(rmse_test_loss))
     return rmse_test_loss
@@ -155,14 +188,16 @@ def test(model, test_loader, loss_function):
 def train_and_test_model(path):
     
     # setting parameters here as input must only be path to dataset
-    epochs = 10
+    epochs = 100
     model = MLP(256, 128, 64)
     loss_function = rmsre
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
-    batch_size = 8
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    batch_size = 16
+    name = path.split("/")[-1]
+    master_file = path+"/"+name+".npy"
     
     # create data loaders
-    data_loaders = Data_Loaders(path, batch_size)
+    data_loaders = Data_Loaders(master_file, batch_size)
     trainloader = data_loaders.train_loader
     validateloader = data_loaders.validate_loader
     testloader = data_loaders.test_loader
@@ -172,18 +207,17 @@ def train_and_test_model(path):
     model.train()
     running_loss_mean = list()
     running_validate_loss_mean = list()
-    for e in tqdm(range(epochs)):
+    for e in tqdm(range(epochs), desc=name, total=epochs):
         #print(f'Starting epoch {e+1}')
         train_loss = list()
         for data in trainloader:
-        
+
             # Transfer Data to GPU if available
             if torch.cuda.is_available():
                 inputs = data[0].cuda()
                 targets = data[1].cuda()
                 model.cuda()
 #                data = data.cuda()
-#                print("Using GPU")
                 
 #            inputs, targets = data
             inputs, targets = inputs.float(), targets.float()
@@ -236,16 +270,16 @@ if __name__ == '__main__':
     
     # create list of paths to files
     #folder_path = '/Users/Andrew/Documents/Edinburgh/ChemistyML/bond_files1/'
-    folder_path = '/home/aidan/Documents/PhD/Year2/ibm_project/data_files/qmrxn/bonds_files_large/'
+    folder_path = '/home/aidan/Documents/PhD/Year2/ibm_project/data_files/qmrxn/bonds_files/'
     paths = [folder_path+temp for temp in listdir(folder_path)]
     names = listdir(folder_path)
   
 #    with ProcessPoolExecutor(max_workers=4) as executor:
 #      results = list(tqdm(executor.map(train_and_test_model, paths), total=len(paths)))
     idx=0  
-    with tqdm(total=len(paths)) as pbar:
+    with tqdm(total=len(paths),desc="Total Progress") as pbar:
         # let's give it some more threads:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=28) as executor:
             futures = {executor.submit(train_and_test_model, path): path for path in paths}
             results = {}
             for future in concurrent.futures.as_completed(futures):
